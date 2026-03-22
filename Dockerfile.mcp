@@ -1,0 +1,20 @@
+# MCP server image — wraps the official mongodb-mcp-server (stdio) with
+# supergateway to expose it via StreamableHTTP on port 3100.
+#
+# Env vars consumed at runtime:
+#   MDB_MCP_CONNECTION_STRING — MongoDB Atlas URI for the MCP server
+FROM node:20-alpine
+
+# Install once at build time so startup is instant
+# netcat-openbsd provides nc for the docker-compose TCP health check
+RUN npm install -g supergateway mongodb-mcp-server \
+ && apk add --no-cache netcat-openbsd
+
+EXPOSE 3100
+
+# supergateway wraps the stdio process and exposes StreamableHTTP at /mcp
+CMD ["supergateway", \
+     "--stdio", "mongodb-mcp-server", \
+     "--port", "3100", \
+     "--host", "0.0.0.0", \
+     "--streamableHttp"]

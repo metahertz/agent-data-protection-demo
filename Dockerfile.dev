@@ -1,0 +1,12 @@
+# Development image — source is bind-mounted; node_modules live only in the container.
+FROM node:20-alpine
+WORKDIR /app
+
+# Install deps inside the image so the host never gets node_modules
+COPY package.json package-lock.json* ./
+RUN npm ci --frozen-lockfile 2>/dev/null || npm install
+
+ENV NEXT_TELEMETRY_DISABLED=1
+EXPOSE 3000
+
+CMD ["npm", "run", "dev"]

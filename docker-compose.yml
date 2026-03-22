@@ -1,0 +1,50 @@
+services:
+
+  # ── MongoDB MCP Server ────────────────────────────────────────────────────
+  mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile.mcp
+    ports:
+      - "3100:3100"          # expose to host for debugging / direct curl tests
+    environment:
+      # Separate MongoDB credentials for the MCP server (read from .env.local)
+      - MDB_MCP_CONNECTION_STRING=${MCP_MONGODB_URI}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "3100"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # ── Next.js App ───────────────────────────────────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3000:3000"
+    volumes:
+      # Bind-mount source so hot-reload works
+      - .:/app
+      # Anonymous volume keeps container's node_modules isolated from the host
+      - /app/node_modules
+      # Named volume for runtime config (MCP URL, prompt mode)
+      - app-config:/app/config
+    env_file:
+      # Copy .env.example → .env.local and fill in your values before running
+      - path: .env.local
+        required: false
+    environment:
+      - NODE_ENV=development
+      - NEXT_TELEMETRY_DISABLED=1
+      # Point the app at the MCP container using docker's internal DNS
+      - MCP_SERVER_URL=http://mcp:3100/mcp
+    depends_on:
+      mcp:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  app-config:
