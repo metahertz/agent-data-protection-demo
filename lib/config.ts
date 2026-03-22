@@ -11,7 +11,7 @@ const CONFIG_PATH = path.join(process.cwd(), 'config', 'app-config.json')
 
 const DEFAULT_CONFIG: AppConfig = {
   // MCP_SERVER_URL env var takes precedence (set automatically by docker-compose)
-  mcpServerUrl: process.env.MCP_SERVER_URL ?? 'http://localhost:3100/mcp',
+  mcpServerUrl: process.env.MCP_SERVER_URL ?? 'http://chat-server-example-mcp-1:3100/sse',
   systemPromptMode: 'unsafe',
   debugMode: false,
 }

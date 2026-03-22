@@ -38,6 +38,10 @@ export async function POST(req: NextRequest) {
       ? 'Connection refused — is the MCP server running?'
       : message.includes('ENOTFOUND') || message.includes('getaddrinfo')
       ? 'Host not found — check the URL'
+      : message.includes('Missing sessionId')
+      ? 'Wrong endpoint — use the /sse path, not /message'
+      : message.includes('Cannot POST')
+      ? 'Wrong endpoint — the MCP server SSE path is /sse'
       : message.includes('fetch') || message.includes('network')
       ? 'Network error — check URL and firewall'
       : message

@@ -40,7 +40,7 @@ services:
       - NODE_ENV=development
       - NEXT_TELEMETRY_DISABLED=1
       # Point the app at the MCP container using docker's internal DNS
-      - MCP_SERVER_URL=http://mcp:3100/mcp
+      - MCP_SERVER_URL=http://chat-server-example-mcp-1:3100/sse
     depends_on:
       mcp:
         condition: service_healthy

@@ -1,5 +1,5 @@
 # MCP server image — wraps the official mongodb-mcp-server (stdio) with
-# supergateway to expose it via StreamableHTTP on port 3100.
+# supergateway to expose it via SSE on port 3100.
 #
 # Env vars consumed at runtime:
 #   MDB_MCP_CONNECTION_STRING — MongoDB Atlas URI for the MCP server
@@ -12,9 +12,9 @@ RUN npm install -g supergateway mongodb-mcp-server \
 
 EXPOSE 3100
 
-# supergateway wraps the stdio process and exposes StreamableHTTP at /mcp
+# supergateway wraps the stdio process and exposes SSE at /sse
+# POST messages go to /message  (both handled automatically by supergateway)
 CMD ["supergateway", \
      "--stdio", "mongodb-mcp-server", \
      "--port", "3100", \
-     "--host", "0.0.0.0", \
-     "--streamableHttp"]
+     "--host", "0.0.0.0"]
