@@ -17,6 +17,9 @@ import {
   Eye,
   EyeOff,
   Bug,
+  Plug,
+  Zap,
+  XCircle,
 } from 'lucide-react'
 
 interface AppSettings {
@@ -94,6 +97,14 @@ export default function SettingsPage() {
   const [seeding, setSeeding] = useState(false)
   const [seedResult, setSeedResult] = useState<SeedResult | null>(null)
   const [seedError, setSeedError] = useState<string | null>(null)
+  const [mcpTesting, setMcpTesting] = useState(false)
+  const [mcpTestResult, setMcpTestResult] = useState<{
+    ok: boolean
+    toolCount?: number
+    tools?: string[]
+    latencyMs?: number
+    error?: string
+  } | null>(null)
 
   const loadSettings = async () => {
     try {
@@ -294,11 +305,11 @@ export default function SettingsPage() {
             <input
               type="text"
               value={mcpUrl}
-              onChange={e => setMcpUrl(e.target.value)}
-              placeholder="http://localhost:3100"
+              onChange={e => { setMcpUrl(e.target.value); setMcpTestResult(null) }}
+              placeholder="http://localhost:3100/mcp"
               className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-slate-200 text-sm placeholder-slate-500 focus:outline-none focus:border-emerald-500"
             />
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
               <button
                 onClick={() => saveField('mcp', { mcpServerUrl: mcpUrl })}
                 disabled={saving === 'mcp' || !mcpUrl}
@@ -307,8 +318,82 @@ export default function SettingsPage() {
                 {saving === 'mcp' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
                 Save MCP URL
               </button>
+              <button
+                onClick={async () => {
+                  setMcpTesting(true)
+                  setMcpTestResult(null)
+                  try {
+                    const res = await fetch('/api/mcp-test', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ url: mcpUrl }),
+                    })
+                    const data = await res.json()
+                    setMcpTestResult(data)
+                  } catch (e) {
+                    setMcpTestResult({ ok: false, error: e instanceof Error ? e.message : 'Request failed' })
+                  } finally {
+                    setMcpTesting(false)
+                  }
+                }}
+                disabled={mcpTesting || !mcpUrl}
+                className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 text-slate-200 disabled:text-slate-500 text-sm rounded-lg transition-colors border border-slate-600"
+              >
+                {mcpTesting
+                  ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  : <Plug className="w-3.5 h-3.5" />}
+                Test Connection
+              </button>
               <SaveFeedback field="mcp" />
             </div>
+
+            {/* MCP test result */}
+            {mcpTestResult && (
+              <div className={`rounded-lg border p-3 text-sm ${
+                mcpTestResult.ok
+                  ? 'bg-emerald-500/10 border-emerald-500/25'
+                  : 'bg-red-500/10 border-red-500/25'
+              }`}>
+                {mcpTestResult.ok ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-emerald-400 font-medium">
+                      <CheckCircle className="w-4 h-4 flex-shrink-0" />
+                      Connected successfully
+                      {mcpTestResult.latencyMs !== undefined && (
+                        <span className="ml-auto text-xs text-slate-400 font-normal flex items-center gap-1">
+                          <Zap className="w-3 h-3" />{mcpTestResult.latencyMs} ms
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-slate-400 text-xs">
+                      {mcpTestResult.toolCount} tool{mcpTestResult.toolCount !== 1 ? 's' : ''} available
+                    </p>
+                    {mcpTestResult.tools && mcpTestResult.tools.length > 0 && (
+                      <div className="flex flex-wrap gap-1 pt-1">
+                        {mcpTestResult.tools.map(t => (
+                          <span key={t} className="px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 rounded text-xs font-mono text-emerald-300">
+                            {t}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 text-red-400 font-medium">
+                      <XCircle className="w-4 h-4 flex-shrink-0" />
+                      Connection failed
+                      {mcpTestResult.latencyMs !== undefined && (
+                        <span className="ml-auto text-xs text-slate-400 font-normal flex items-center gap-1">
+                          <Zap className="w-3 h-3" />{mcpTestResult.latencyMs} ms
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-red-300/80 text-xs">{mcpTestResult.error}</p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </SectionCard>
 
