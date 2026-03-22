@@ -3,7 +3,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { getAppConfig } from '@/lib/config'
 import { UNSAFE_SYSTEM_PROMPT } from '@/lib/chat-system-prompt'
 import { SAFE_SYSTEM_PROMPT } from '@/lib/chat-system-prompt-safe'
-import { createMCPClient } from '@/lib/mcp-client'
+import { getMCPClient, resetMCPClient } from '@/lib/mcp-client'
 
 export const runtime = 'nodejs'
 export const maxDuration = 120
@@ -34,14 +34,19 @@ export async function POST(req: NextRequest) {
   // Run agent loop in background
   ;(async () => {
     const client = new Anthropic({ apiKey })
-    let mcpClient: Awaited<ReturnType<typeof createMCPClient>> | null = null
+    let mcpClient: Awaited<ReturnType<typeof getMCPClient>> | null = null
 
     try {
-      // Try to connect to MCP server
+      // Connect to MCP server via shared singleton
       let tools: Anthropic.Messages.Tool[] = []
       try {
-        mcpClient = await createMCPClient(mcpServerUrl)
-        const toolsResult = await mcpClient.listTools()
+        mcpClient = await getMCPClient(mcpServerUrl)
+        let toolsResult = await mcpClient.listTools().catch(async () => {
+          // Stale connection (server restarted) — reset and reconnect once
+          await resetMCPClient()
+          mcpClient = await getMCPClient(mcpServerUrl)
+          return mcpClient.listTools()
+        })
         tools = toolsResult.tools.map(t => ({
           name: t.name,
           description: t.description || '',
@@ -120,9 +125,7 @@ export async function POST(req: NextRequest) {
     } catch (error) {
       await send({ type: 'error', message: error instanceof Error ? error.message : 'Unknown error' })
     } finally {
-      if (mcpClient) {
-        try { await mcpClient.close() } catch { /* ignore */ }
-      }
+      // Do NOT close mcpClient — it's a shared singleton, kept alive for reuse
       await send({ type: 'done' })
       await writer.close()
     }
