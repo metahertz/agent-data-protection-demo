@@ -1,8 +1,7 @@
 import { NextRequest } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { getAppConfig } from '@/lib/config'
-import { UNSAFE_SYSTEM_PROMPT } from '@/lib/chat-system-prompt'
-import { SAFE_SYSTEM_PROMPT } from '@/lib/chat-system-prompt-safe'
+import { getSystemPrompt } from '@/lib/system-prompt'
 import { getMCPClient, resetMCPClient } from '@/lib/mcp-client'
 
 export const runtime = 'nodejs'
@@ -13,7 +12,7 @@ export async function POST(req: NextRequest) {
 
   const config = getAppConfig()
   const mcpServerUrl = clientMcpUrl || config.mcpServerUrl
-  const systemPrompt = config.systemPromptMode === 'safe' ? SAFE_SYSTEM_PROMPT : UNSAFE_SYSTEM_PROMPT
+  const systemPrompt = getSystemPrompt(config)
 
   const apiKey = process.env.ANTHROPIC_API_KEY
   if (!apiKey) {
@@ -62,7 +61,7 @@ export async function POST(req: NextRequest) {
 
       for (let iteration = 0; iteration < 10; iteration++) {
         const response = await client.messages.create({
-          model: 'claude-sonnet-4-6',
+          model: config.modelId,
           max_tokens: 4096,
           system: systemPrompt,
           tools: tools.length > 0 ? tools : undefined,

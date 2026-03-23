@@ -9,6 +9,7 @@ import {
   Server,
   ShieldAlert,
   Shield,
+  ShieldCheck,
   CheckCircle,
   AlertTriangle,
   RefreshCw,
@@ -20,15 +21,43 @@ import {
   Plug,
   Zap,
   XCircle,
+  Bot,
+  Lock,
 } from 'lucide-react'
 
 interface AppSettings {
   mcpServerUrl: string
   systemPromptMode: 'unsafe' | 'safe'
   debugMode: boolean
+  modelId: string
+  viewProtectionEnabled: boolean
   hasMongoDB: boolean
   hasAnthropicKey: boolean
 }
+
+const MODEL_OPTIONS = [
+  {
+    id: 'claude-sonnet-4-6',
+    label: 'Claude Sonnet 4.6',
+    desc: 'Default — highly resistant to jailbreaks',
+    badge: 'Most Secure',
+    badgeColor: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
+  },
+  {
+    id: 'claude-haiku-4-5',
+    label: 'Claude Haiku 4.5',
+    desc: 'Smaller, faster — moderately more susceptible',
+    badge: 'Faster',
+    badgeColor: 'text-blue-400 bg-blue-500/10 border-blue-500/20',
+  },
+  {
+    id: 'claude-3-haiku-20240307',
+    label: 'Claude 3 Haiku (legacy)',
+    desc: 'Older model — most susceptible to prompt injection',
+    badge: 'Legacy',
+    badgeColor: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
+  },
+]
 
 interface SeedResult {
   devices: number
@@ -105,6 +134,8 @@ export default function SettingsPage() {
     latencyMs?: number
     error?: string
   } | null>(null)
+  const [viewWorking, setViewWorking] = useState(false)
+  const [viewStatus, setViewStatus] = useState<{ ok: boolean; msg: string } | null>(null)
 
   const loadSettings = async () => {
     try {
@@ -143,6 +174,57 @@ export default function SettingsPage() {
     } finally {
       setSaving(null)
       setTimeout(() => setSaveResult(prev => ({ ...prev, [field]: { ok: false, msg: '' } })), 3000)
+    }
+  }
+
+  const saveModelId = async (id: string) => {
+    setSaving('model')
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ modelId: id }),
+      })
+      if (res.ok) {
+        setSettings(prev => prev ? { ...prev, modelId: id } : prev)
+        setSaveResult(prev => ({ ...prev, model: { ok: true, msg: 'Model updated!' } }))
+        setTimeout(() => setSaveResult(prev => ({ ...prev, model: { ok: false, msg: '' } })), 3000)
+      }
+    } catch { /* ignore */ }
+    finally { setSaving(null) }
+  }
+
+  const toggleViewProtection = async (enabled: boolean) => {
+    setSaving('viewProtection')
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ viewProtectionEnabled: enabled }),
+      })
+      if (res.ok) {
+        setSettings(prev => prev ? { ...prev, viewProtectionEnabled: enabled } : prev)
+      }
+    } catch { /* ignore */ }
+    finally { setSaving(null) }
+  }
+
+  const manageView = async (action: 'create' | 'drop') => {
+    setViewWorking(true)
+    setViewStatus(null)
+    try {
+      const res = await fetch('/api/mongodb-view', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+      })
+      const data = await res.json()
+      setViewStatus({ ok: data.ok, msg: data.message || data.error || (data.ok ? 'Done' : 'Failed') })
+      if (data.ok) loadSettings()
+    } catch (e) {
+      setViewStatus({ ok: false, msg: e instanceof Error ? e.message : 'Request failed' })
+    } finally {
+      setViewWorking(false)
     }
   }
 
@@ -461,6 +543,132 @@ export default function SettingsPage() {
                 <CheckCircle className="w-3 h-3" /> {saveResult.promptMode.msg}
               </p>
             )}
+          </div>
+        </SectionCard>
+
+        {/* AI Model */}
+        <SectionCard
+          title="AI Model"
+          icon={<Bot className="w-4 h-4 text-purple-400" />}
+        >
+          <div className="space-y-3">
+            <p className="text-slate-500 text-xs">
+              Selects which Claude model powers the chat. Modern models are highly resistant to prompt injection.
+              Use a legacy model to demonstrate Part 2 of the educational demo.
+            </p>
+            <div className="space-y-2">
+              {MODEL_OPTIONS.map(opt => (
+                <button
+                  key={opt.id}
+                  onClick={() => saveModelId(opt.id)}
+                  disabled={saving === 'model'}
+                  className={`w-full text-left px-4 py-3 rounded-xl border-2 transition-all flex items-center gap-3 ${
+                    settings?.modelId === opt.id
+                      ? 'border-purple-500/60 bg-purple-500/5'
+                      : 'border-slate-700 hover:border-slate-600 bg-slate-800/30'
+                  }`}
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-white">{opt.label}</span>
+                      <span className={`px-1.5 py-0.5 text-xs rounded border ${opt.badgeColor}`}>{opt.badge}</span>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-0.5">{opt.desc}</p>
+                  </div>
+                  {settings?.modelId === opt.id && (
+                    <CheckCircle className="w-4 h-4 text-purple-400 flex-shrink-0" />
+                  )}
+                </button>
+              ))}
+            </div>
+            {saving === 'model' && (
+              <p className="text-xs text-slate-500 flex items-center gap-1.5">
+                <Loader2 className="w-3 h-3 animate-spin" /> Saving...
+              </p>
+            )}
+            {saveResult.model?.msg && (
+              <p className="text-xs text-emerald-400 flex items-center gap-1.5">
+                <CheckCircle className="w-3 h-3" /> {saveResult.model.msg}
+              </p>
+            )}
+          </div>
+        </SectionCard>
+
+        {/* Part 3: Database View Protection */}
+        <SectionCard
+          title="Part 3: Database View Protection"
+          icon={<Lock className="w-4 h-4 text-emerald-400" />}
+        >
+          <div className="space-y-4">
+            <div className="flex items-start gap-2 px-3 py-2 bg-blue-500/5 border border-blue-500/20 rounded-lg">
+              <Info className="w-3.5 h-3.5 text-blue-400 flex-shrink-0 mt-0.5" />
+              <p className="text-blue-300/80 text-xs">
+                Creates a MongoDB view <code className="bg-blue-900/30 px-1 rounded">credentials_safe</code> that
+                omits <code className="bg-blue-900/30 px-1 rounded">password</code>,{' '}
+                <code className="bg-blue-900/30 px-1 rounded">enable_password</code>, and{' '}
+                <code className="bg-blue-900/30 px-1 rounded">snmp_community</code> fields.
+                When View Protection is enabled, all system prompts reference this view — even a
+                fully jailbroken AI can only return data the view contains.
+              </p>
+            </div>
+
+            {/* Step 1: Create/drop view */}
+            <div>
+              <p className="text-xs font-medium text-slate-300 mb-2">Step 1 — Create the restricted view</p>
+              <div className="flex items-center gap-3 flex-wrap">
+                <button
+                  onClick={() => manageView('create')}
+                  disabled={viewWorking || !settings?.hasMongoDB}
+                  className="flex items-center gap-2 px-4 py-2 bg-emerald-700 hover:bg-emerald-600 disabled:bg-slate-700 text-white disabled:text-slate-500 text-sm rounded-lg transition-colors"
+                >
+                  {viewWorking ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5" />}
+                  Create credentials_safe View
+                </button>
+                <button
+                  onClick={() => manageView('drop')}
+                  disabled={viewWorking || !settings?.hasMongoDB}
+                  className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 text-slate-300 disabled:text-slate-500 text-sm rounded-lg transition-colors border border-slate-600"
+                >
+                  {viewWorking ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <XCircle className="w-3.5 h-3.5" />}
+                  Drop View
+                </button>
+              </div>
+              {viewStatus && (
+                <p className={`text-xs mt-2 flex items-center gap-1.5 ${viewStatus.ok ? 'text-emerald-400' : 'text-red-400'}`}>
+                  {viewStatus.ok ? <CheckCircle className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />}
+                  {viewStatus.msg}
+                </p>
+              )}
+              {!settings?.hasMongoDB && (
+                <p className="text-xs text-amber-400 mt-2">MongoDB must be configured first.</p>
+              )}
+            </div>
+
+            {/* Step 2: Enable view protection */}
+            <div>
+              <p className="text-xs font-medium text-slate-300 mb-2">Step 2 — Enable view protection</p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-white">Use credentials_safe in all prompts</p>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {settings?.viewProtectionEnabled
+                      ? 'Enabled — AI is directed to credentials_safe (no secrets in view)'
+                      : 'Disabled — AI uses raw credentials collection'}
+                  </p>
+                </div>
+                <button
+                  onClick={() => toggleViewProtection(!settings?.viewProtectionEnabled)}
+                  disabled={saving === 'viewProtection'}
+                  className={`relative w-12 h-6 rounded-full transition-colors ${
+                    settings?.viewProtectionEnabled ? 'bg-emerald-500' : 'bg-slate-600'
+                  } ${saving === 'viewProtection' ? 'opacity-50' : ''}`}
+                >
+                  <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                    settings?.viewProtectionEnabled ? 'translate-x-6' : 'translate-x-0.5'
+                  }`} />
+                </button>
+              </div>
+            </div>
           </div>
         </SectionCard>
 

@@ -9,6 +9,8 @@ export async function GET() {
     mcpServerUrl: config.mcpServerUrl,
     systemPromptMode: config.systemPromptMode,
     debugMode: config.debugMode,
+    modelId: config.modelId,
+    viewProtectionEnabled: config.viewProtectionEnabled,
     hasMongoDB: !!process.env.MONGODB_URI,
     hasAnthropicKey: !!process.env.ANTHROPIC_API_KEY,
   })
@@ -19,11 +21,14 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
 
     // Update runtime config (hot-reloads without restart)
-    if (body.mcpServerUrl !== undefined || body.systemPromptMode !== undefined || body.debugMode !== undefined) {
+    const runtimeFields = ['mcpServerUrl', 'systemPromptMode', 'debugMode', 'modelId', 'viewProtectionEnabled']
+    if (runtimeFields.some(f => body[f] !== undefined)) {
       saveAppConfig({
         ...(body.mcpServerUrl !== undefined && { mcpServerUrl: body.mcpServerUrl }),
         ...(body.systemPromptMode !== undefined && { systemPromptMode: body.systemPromptMode }),
         ...(body.debugMode !== undefined && { debugMode: body.debugMode }),
+        ...(body.modelId !== undefined && { modelId: body.modelId }),
+        ...(body.viewProtectionEnabled !== undefined && { viewProtectionEnabled: body.viewProtectionEnabled }),
       })
     }
 

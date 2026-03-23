@@ -5,6 +5,8 @@ interface AppConfig {
   mcpServerUrl: string
   systemPromptMode: 'unsafe' | 'safe'
   debugMode: boolean
+  modelId: string
+  viewProtectionEnabled: boolean
 }
 
 const CONFIG_PATH = path.join(process.cwd(), 'config', 'app-config.json')
@@ -14,6 +16,8 @@ const DEFAULT_CONFIG: AppConfig = {
   mcpServerUrl: process.env.MCP_SERVER_URL ?? 'http://chat-server-example-mcp-1:3100/sse',
   systemPromptMode: 'unsafe',
   debugMode: false,
+  modelId: 'claude-sonnet-4-6',
+  viewProtectionEnabled: false,
 }
 
 export function getAppConfig(): AppConfig {
