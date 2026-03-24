@@ -659,12 +659,12 @@ export default function SettingsPage() {
                 <button
                   onClick={() => toggleViewProtection(!settings?.viewProtectionEnabled)}
                   disabled={saving === 'viewProtection'}
-                  className={`relative w-12 h-6 rounded-full transition-colors ${
+                  className={`relative flex-shrink-0 w-12 h-6 rounded-full transition-colors ${
                     settings?.viewProtectionEnabled ? 'bg-emerald-500' : 'bg-slate-600'
                   } ${saving === 'viewProtection' ? 'opacity-50' : ''}`}
                 >
-                  <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                    settings?.viewProtectionEnabled ? 'translate-x-6' : 'translate-x-0.5'
+                  <span className={`absolute top-0.5 left-0 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                    settings?.viewProtectionEnabled ? 'translate-x-[1.625rem]' : 'translate-x-0.5'
                   }`} />
                 </button>
               </div>
@@ -706,12 +706,12 @@ export default function SettingsPage() {
                   finally { setSaving(null) }
                 }}
                 disabled={saving === 'debug'}
-                className={`relative w-12 h-6 rounded-full transition-colors ${
+                className={`relative flex-shrink-0 w-12 h-6 rounded-full transition-colors ${
                   settings?.debugMode ? 'bg-amber-500' : 'bg-slate-600'
                 } ${saving === 'debug' ? 'opacity-50' : ''}`}
               >
-                <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                  settings?.debugMode ? 'translate-x-6' : 'translate-x-0.5'
+                <span className={`absolute top-0.5 left-0 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                  settings?.debugMode ? 'translate-x-[1.625rem]' : 'translate-x-0.5'
                 }`} />
               </button>
             </div>
