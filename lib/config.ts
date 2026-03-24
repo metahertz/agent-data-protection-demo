@@ -7,6 +7,7 @@ interface AppConfig {
   debugMode: boolean
   modelId: string
   viewProtectionEnabled: boolean
+  mongoDbName: string
 }
 
 const CONFIG_PATH = path.join(process.cwd(), 'config', 'app-config.json')
@@ -18,6 +19,7 @@ const DEFAULT_CONFIG: AppConfig = {
   debugMode: false,
   modelId: 'claude-sonnet-4-6',
   viewProtectionEnabled: false,
+  mongoDbName: 'test',
 }
 
 export function getAppConfig(): AppConfig {

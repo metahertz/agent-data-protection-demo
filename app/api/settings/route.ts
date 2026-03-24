@@ -11,6 +11,7 @@ export async function GET() {
     debugMode: config.debugMode,
     modelId: config.modelId,
     viewProtectionEnabled: config.viewProtectionEnabled,
+    mongoDbName: config.mongoDbName,
     hasMongoDB: !!process.env.MONGODB_URI,
     hasAnthropicKey: !!process.env.ANTHROPIC_API_KEY,
   })
@@ -21,7 +22,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
 
     // Update runtime config (hot-reloads without restart)
-    const runtimeFields = ['mcpServerUrl', 'systemPromptMode', 'debugMode', 'modelId', 'viewProtectionEnabled']
+    const runtimeFields = ['mcpServerUrl', 'systemPromptMode', 'debugMode', 'modelId', 'viewProtectionEnabled', 'mongoDbName']
     if (runtimeFields.some(f => body[f] !== undefined)) {
       saveAppConfig({
         ...(body.mcpServerUrl !== undefined && { mcpServerUrl: body.mcpServerUrl }),
@@ -29,18 +30,19 @@ export async function POST(req: NextRequest) {
         ...(body.debugMode !== undefined && { debugMode: body.debugMode }),
         ...(body.modelId !== undefined && { modelId: body.modelId }),
         ...(body.viewProtectionEnabled !== undefined && { viewProtectionEnabled: body.viewProtectionEnabled }),
+        ...(body.mongoDbName !== undefined && { mongoDbName: body.mongoDbName }),
       })
     }
 
     // Write secrets to .env.local (requires restart to take effect)
     let envChanged = false
-    if (body.mongodbUri || body.anthropicApiKey) {
-      const envPath = path.join(process.cwd(), '.env.local')
-      let envContent = ''
-      try {
-        envContent = fs.existsSync(envPath) ? fs.readFileSync(envPath, 'utf-8') : ''
-      } catch { /* ignore */ }
+    const envPath = path.join(process.cwd(), '.env.local')
+    let envContent = ''
+    try {
+      envContent = fs.existsSync(envPath) ? fs.readFileSync(envPath, 'utf-8') : ''
+    } catch { /* ignore */ }
 
+    if (body.mongodbUri || body.anthropicApiKey || body.mongoDbName !== undefined) {
       if (body.mongodbUri) {
         envContent = setEnvVar(envContent, 'MONGODB_URI', body.mongodbUri)
         envChanged = true
@@ -49,6 +51,15 @@ export async function POST(req: NextRequest) {
         envContent = setEnvVar(envContent, 'ANTHROPIC_API_KEY', body.anthropicApiKey)
         envChanged = true
       }
+      if (body.mongoDbName !== undefined) {
+        // Inject the db name into MCP_MONGODB_URI so the MCP container uses the right database
+        const mcpUriMatch = envContent.match(/^MCP_MONGODB_URI=(.+)$/m)
+        if (mcpUriMatch) {
+          const updatedUri = injectDbNameIntoUri(mcpUriMatch[1], body.mongoDbName)
+          envContent = setEnvVar(envContent, 'MCP_MONGODB_URI', updatedUri)
+          envChanged = true
+        }
+      }
       fs.writeFileSync(envPath, envContent)
     }
 
@@ -56,6 +67,15 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     return NextResponse.json({ error: 'Failed to save settings' }, { status: 500 })
   }
+}
+
+/** Replaces the database name in a MongoDB connection string path component. */
+function injectDbNameIntoUri(uri: string, dbName: string): string {
+  // Handles: mongodb[+srv]://credentials@host[/oldDb][?params]
+  return uri.replace(
+    /^(mongodb(?:\+srv)?:\/\/[^/]+)\/?[^?]*(.*)/,
+    `$1/${dbName}$2`
+  )
 }
 
 function setEnvVar(content: string, key: string, value: string): string {

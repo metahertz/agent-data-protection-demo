@@ -31,6 +31,7 @@ interface AppSettings {
   debugMode: boolean
   modelId: string
   viewProtectionEnabled: boolean
+  mongoDbName: string
   hasMongoDB: boolean
   hasAnthropicKey: boolean
 }
@@ -118,6 +119,7 @@ function SectionCard({ title, icon, children }: {
 export default function SettingsPage() {
   const [settings, setSettings] = useState<AppSettings | null>(null)
   const [mongoUri, setMongoUri] = useState('')
+  const [mongoDbName, setMongoDbName] = useState('')
   const [anthropicKey, setAnthropicKey] = useState('')
   const [mcpUrl, setMcpUrl] = useState('')
   const [saving, setSaving] = useState<string | null>(null)
@@ -144,6 +146,7 @@ export default function SettingsPage() {
         const data = await res.json()
         setSettings(data)
         setMcpUrl(data.mcpServerUrl || '')
+        setMongoDbName(data.mongoDbName || 'test')
       }
     } catch { /* ignore */ }
   }
@@ -328,6 +331,38 @@ export default function SettingsPage() {
                 Save MongoDB URI
               </button>
               <SaveFeedback field="mongo" />
+            </div>
+
+            <div className="border-t border-slate-700/50 pt-4 space-y-2">
+              <label className="text-xs font-medium text-slate-400">Database Name</label>
+              <p className="text-slate-500 text-xs">
+                Selects which MongoDB database to use for both the UI and the MCP server.
+                Defaults to <code className="bg-slate-800 px-1 rounded">test</code>.
+                MCP changes require a container restart.
+              </p>
+              <div className="flex items-center gap-3">
+                <input
+                  type="text"
+                  value={mongoDbName}
+                  onChange={e => setMongoDbName(e.target.value)}
+                  placeholder="test"
+                  className="w-48 px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-slate-200 text-sm placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                />
+                <button
+                  onClick={() => saveField('dbName', { mongoDbName })}
+                  disabled={saving === 'dbName' || !mongoDbName.trim()}
+                  className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 text-white disabled:text-slate-500 text-sm rounded-lg transition-colors"
+                >
+                  {saving === 'dbName' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                  Save
+                </button>
+                <SaveFeedback field="dbName" />
+              </div>
+              {settings?.mongoDbName && (
+                <p className="text-xs text-slate-500">
+                  Current: <code className="text-emerald-400 bg-slate-800 px-1 rounded">{settings.mongoDbName}</code>
+                </p>
+              )}
             </div>
           </div>
         </SectionCard>
